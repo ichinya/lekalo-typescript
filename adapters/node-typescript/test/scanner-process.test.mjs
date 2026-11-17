@@ -126,6 +126,7 @@ test("describe advertises scan only with the launch profile, and the compiler pi
 });
 
 test("the committed artifact is exactly the deterministic rebuild", () => {
+  assert.ok(readFileSync(adapterPath, "utf8").startsWith("#!/usr/bin/env node\n// lekalo-runtime-bundle: runtime-bundle.json\n"), "artifact opts into the host-supervised compiler runtime");
   const check = spawnSync(process.execPath, ["build.mjs", "--check"], {
     cwd: join(repoRoot, "adapters/node-typescript"),
     encoding: "utf8",

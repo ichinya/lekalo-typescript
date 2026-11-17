@@ -226,7 +226,8 @@ nativeGate.setAdapterIdentity(__lekaloAdapterIdentity);
 await kernel.runIfEntry(import.meta.url);
 `;
 
-const banner = `// lekalo-runtime-bundle: runtime-bundle.json
+const banner = `#!/usr/bin/env node
+// lekalo-runtime-bundle: runtime-bundle.json
 /**
  * The committed single-file adapter artifact of
  * \`lekalo-target-node-typescript\` (issues #43/#44).
