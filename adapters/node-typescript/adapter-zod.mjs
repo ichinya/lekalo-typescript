@@ -2630,8 +2630,12 @@ function runIfEntry(entryUrl) {
   if (typeof process === "undefined" || !process.argv?.[1] || typeof entryUrl !== "string") {
     return;
   }
+  const normalize = (path) => process.platform === "win32" ? path.toLowerCase() : path;
+  const argvPath = resolve(process.argv[1]);
+  const modulePath = fileURLToPath(entryUrl);
+  if (normalize(argvPath) === normalize(modulePath)) return main();
   try {
-    if (realpathSync(resolve(process.argv[1])) === realpathSync(fileURLToPath(entryUrl))) {
+    if (normalize(realpathSync(argvPath)) === normalize(realpathSync(modulePath))) {
       return main();
     }
   } catch {

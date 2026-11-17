@@ -182,3 +182,22 @@ test('source and bundled entrypoints execute through a linked checkout', async (
     }
   } finally { rmSync(home, {recursive:true, force:true}); }
 });
+
+
+test('a direct entry executes when physical path traversal is denied', async () => {
+  const { spawnSync } = await import('node:child_process');
+  const kernelUrl = new URL('../src/kernel.mjs', import.meta.url).href;
+  const script = `
+    import fs from 'node:fs';
+    import {syncBuiltinESMExports} from 'node:module';
+    import {fileURLToPath} from 'node:url';
+    import {runIfEntry} from ${JSON.stringify(kernelUrl)};
+    fs.realpathSync = () => { throw Object.assign(new Error('denied'), {code:'EACCES'}); };
+    syncBuiltinESMExports();
+    process.argv = [process.execPath, fileURLToPath(${JSON.stringify(kernelUrl)}), '--version-json'];
+    await runIfEntry(${JSON.stringify(kernelUrl)});
+  `;
+  const result = spawnSync(process.execPath, ['--input-type=module', '-e', script], {encoding:'utf8', timeout:20000});
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(JSON.parse(result.stdout).adapter.id, 'lekalo-target-node-typescript');
+});
