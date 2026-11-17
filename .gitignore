@@ -1,0 +1,4 @@
+node_modules/
+/adapters/node-typescript/runtime/
+/adapters/node-typescript/.build*/
+/.ai-workspace.local.json

@@ -1,0 +1,22 @@
+name: Package CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24.x
+          package-manager-cache: false
+      - run: node scripts/check-sources.mjs
+      - run: npm ci --prefix adapters/node-typescript --ignore-scripts --no-audit --no-fund
+      - run: node adapters/node-typescript/provision-compiler.mjs
+      - run: node adapters/node-typescript/build.mjs --check
+      - run: node --test --test-concurrency=1 adapters/node-typescript/test/*.test.mjs
