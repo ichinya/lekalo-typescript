@@ -32,6 +32,12 @@ Lifecycle scripts намеренно запрещены: зависимости 
 cargo test --locked --manifest-path crates/discovery/Cargo.toml
 ```
 
-Ядро использует проверяемую копию в `packages/` с точным commit и SHA-256.
-Это переходный способ поставки host-side discovery, а не новый процессный
-runtime или resolver пакетов. Формат существующего adoption receipt сохраняется.
+Ядро вызывает самостоятельный процесс `lekalo-typescript-discovery` по `lekalo/runtime/v1`; копий и Cargo-зависимости на этот пакет в ядре нет. Формат существующего adoption receipt сохраняется.
+
+## Установка discovery-сервиса
+
+```sh
+cargo install --locked --path crates/discovery --root /your/tools
+```
+
+Добавьте `/your/tools/bin` в PATH, укажите `services.discovery/typescript: {command: [lekalo-typescript-discovery]}` в `lekalo.yaml` и выполните `lekalo runtime lock`. Операции: `describe`, `discovery.describe`, `discovery.inspect`; входные файлы передаются как данные, процесс не читает проект. [Контракт сервиса](https://github.com/ichinya/lekalo/blob/feat/external-services-241/docs/external-services.md). Сборка сервиса использует `debug=0`, `incremental=false`.
