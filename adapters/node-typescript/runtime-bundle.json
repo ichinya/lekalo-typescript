@@ -2,8 +2,8 @@
   "schema_version": "lekalo/compiler-runtime/v1.3.0",
   "entry": {
     "path": "adapter.mjs",
-    "digest": "sha256:fef381db910d12d2f2d0095309d95b8e0a379abacfbb4fc91997d52ffc41298f",
-    "bytes": 6173287
+    "digest": "sha256:7cfe02b47645ccb82e5d85a93ea32adfe37fdda0c6b97327e5850c512589bd66",
+    "bytes": 6173307
   },
   "compilers": [
     {

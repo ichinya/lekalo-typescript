@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 // lekalo-runtime-bundle: runtime-bundle.json
 /**
  * The committed single-file adapter artifact of
