@@ -101,7 +101,7 @@
       },
       {
         "path": "runtime-bundle.json",
-        "digest": "sha256:5203cf7780e5ccc0b0b79316ca26759ba1a197c48f03d807352585e6dc2ca91d"
+        "digest": "sha256:d8675fe2723a14286c808fd3a41157081ef9aa3463167f958e0c732a2a5dd0d8"
       }
     ]
   },
@@ -113,16 +113,16 @@
     "windows-x64"
   ],
   "integrity": {
-    "packageDigest": "sha256:63dd0a0c982d7dc75d492291938775d1ef60c51fad3cc506962f9dde9c98a777",
+    "packageDigest": "sha256:ca979a2655ee801b9d213f2310dbcbbdafa0edb534c0fcb916a17f28d1c6b085",
     "files": [
       {
         "path": "adapter.mjs",
-        "digest": "sha256:7cfe02b47645ccb82e5d85a93ea32adfe37fdda0c6b97327e5850c512589bd66",
-        "bytes": 6173307
+        "digest": "sha256:5a45ccce089c3b9e13b26f98931561393bd01c98c67530824ae6da2e6e26fa02",
+        "bytes": 6173326
       },
       {
         "path": "runtime-bundle.json",
-        "digest": "sha256:5203cf7780e5ccc0b0b79316ca26759ba1a197c48f03d807352585e6dc2ca91d",
+        "digest": "sha256:d8675fe2723a14286c808fd3a41157081ef9aa3463167f958e0c732a2a5dd0d8",
         "bytes": 21359
       },
       {
