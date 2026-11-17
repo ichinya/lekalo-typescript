@@ -247,6 +247,21 @@
     "tests/fixtures/scenario/valid/planner-switch-focus.json": "sha256:173f1d7f23309c62c5d1192b20066b89ece28a3839f4cebd325c953b93be74c1",
     "tests/fixtures/scenario/valid/reachability-flow.json": "sha256:2b9d6451820db7dd1082587719b8ec1359413385ca323f85257769309d1dd9b9",
     "docs/public-typescript-scan.md": "sha256:655008d23346cb56fb76e0aa056a314ac0deeeb491f6c178b532c1c2348bb397",
-    "docs/typescript-native-runtime.md": "sha256:3e33897afac9c42e235acd174457bbb01c2ef20dc32e30e68cc13dc8de5a9b00"
+    "docs/typescript-native-runtime.md": "sha256:3e33897afac9c42e235acd174457bbb01c2ef20dc32e30e68cc13dc8de5a9b00",
+    "tests/fixtures/node-native-tools/toolchain-lock.json": "sha256:ff821ee5244bf481315c9925d30e56ff7140bbe366dbdd23d2200b2462c6e9e6",
+    "tests/fixtures/node-native-tools/project/package.json": "sha256:196a554f50e85ecfc464d71dabddfaa3d98a389cc23225519f415e084fb03440",
+    "tests/fixtures/node-native-tools/project/packages/core/vitest.config.mjs": "sha256:b6106f5b54e503fae78c278875c6642b5a4946fc94c569b7ce72c5158e998b0e",
+    "tests/fixtures/node-native-tools/project/packages/core/tsconfig.json": "sha256:66c6aa843b3b1810173bb6f0f379bfeab11ddc0f6d3eeb8bbe9c3b037bbaa833",
+    "tests/fixtures/node-native-tools/project/packages/core/package.json": "sha256:db0247267bf9cd4d4e6fe5d2359d0bb53b089845d4dc466764729fb41d5b4237",
+    "tests/fixtures/node-native-tools/project/packages/web/index.html": "sha256:ed27d5d555dfc2a9352bc90b7bfedb0b004917c74ca69143f1d4b41077128db3",
+    "tests/fixtures/node-native-tools/project/packages/web/vite.config.mjs": "sha256:8f70a3deb2bc5245ee4862c5d628abc20604bfc77d73fd52251d758b72f085d6",
+    "tests/fixtures/node-native-tools/project/packages/web/tsconfig.json": "sha256:f302a3d4ea972360bd1e06ab7e89122c1181fd38b1725b6da7b4d58505ab4bfe",
+    "tests/fixtures/node-native-tools/project/packages/web/package.json": "sha256:26ec5ab68a1b81efe0dbfce6e16d34be68eba1ac2fbb9430b18e976e97c44deb",
+    "tests/fixtures/node-native-tools/project/packages/web/src/main.ts": "sha256:fa8f322acb17cb73e442d16df2873c7612594b1ffc0fd41c20db020b5d966069",
+    "tests/fixtures/node-native-tools/project/packages/core/test/add.test.ts": "sha256:694401eed54b98f67f11cf0262b51254d1969d608153bcefb5f66c77af7656ed",
+    "tests/fixtures/node-native-tools/project/packages/core/src/index.ts": "sha256:f0ffe4a7b43f6cdace8bdae3677bf1335cf69f17a0a6dbb295b31cc9cfce13be",
+    "contracts/native-tool-catalog.schema.v1.0.0.json": "sha256:fa6e27873fa20bdc517ff3c657e69878eb7708d96a224c085f542d8723759067",
+    "contracts/native-execution-plan.schema.v1.0.0.json": "sha256:15dc0be57b65a6290c3066126165d333d112fc6296d7ef5107790f20441664f3",
+    "contracts/native-verify-report.schema.v1.0.0.json": "sha256:fbe9f2dfa488a2323b087efe0b7449eefa8b251d2e54e54a97f504e2c5dddcc8"
   }
 }
