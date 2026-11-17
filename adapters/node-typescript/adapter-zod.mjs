@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 /**
  * The committed single-file generation artifact of
  * `lekalo-target-node-typescript` (issue #45): the protocol kernel plus

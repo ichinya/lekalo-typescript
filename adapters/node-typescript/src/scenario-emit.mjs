@@ -24,7 +24,7 @@
  * and the reporter persists the rows into the durable run record.
  */
 
-import { canonicalJson } from "./zod-emit.mjs";
+import { canonicalJson } from "@lekalo/typescript-zod/zod-emit.mjs";
 
 /** The emitting adapter identity; kept in lockstep with the kernel. */
 export const ADAPTER_ID = "lekalo-target-node-typescript";

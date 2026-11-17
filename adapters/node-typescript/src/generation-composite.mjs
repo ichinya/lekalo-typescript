@@ -27,7 +27,7 @@ import {
   descriptor as zodDescriptor,
   planIdOf,
   ZOD_WRITE_SCOPES,
-} from "./zod-gen.mjs";
+} from "@lekalo/typescript-zod/zod-gen.mjs";
 import {
   transportExtensionDescriptor,
   TRANSPORT_READ_ROOT,

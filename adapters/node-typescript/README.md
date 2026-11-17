@@ -103,8 +103,10 @@ in-envelope error, never a silently complete receipt.
 
 ## The Hono framework provider (issue #115)
 
-A framework-specific evidence provider layered on the same scan:
-`src/hono-*.mjs`, vocabulary in `hono-compatibility.json`.
+A framework-specific evidence provider layered on the same scan, owned by
+[`lekalo-typescript-hono`](https://github.com/ichinya/lekalo-typescript-hono).
+Its source, vocabulary and fixture suites are installed from the pinned
+`@lekalo/typescript-hono` package. Runtime registration is still build-time.
 
 - Enablement is policy-only: the trusted launch input
   `--lekalo-framework-policy-json` (closed shape
@@ -141,7 +143,9 @@ A framework-specific evidence provider layered on the same scan:
 ## The Zod schema generator (issue #45)
 
 Generation of deterministic, typechecking Zod schemas from the
-compiled project IR inside the kernel's read/write views:
+compiled project IR inside the kernel's read/write views. Source and tests
+are owned by [`lekalo-typescript-zod`](https://github.com/ichinya/lekalo-typescript-zod),
+installed as the pinned `@lekalo/typescript-zod` package:
 
 - inputs: the canonical IR evidence under `.lekalo/cache/ir/**` (a
   declared read root) and the optional adapter-owned policy document

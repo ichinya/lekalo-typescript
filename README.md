@@ -2,13 +2,13 @@
 
 Языковой адаптер [Lekalo](https://github.com/ichinya/lekalo) для TypeScript/JavaScript (Node): понимание исходников, типов и символов, observed-scan, bindings и native gates.
 
-- Протокол к ядру — lekalo.target process/JSON protocol (реализация принадлежит этому репозиторию; ядро получает закреплённый snapshot).
-- Framework-индексация (Vue SFC, React TSX; далее Hono/NestJS-пакеты) подключается через versioned provider API — [lekalo-php#1](https://github.com/ichinya/lekalo-php/issues/1) (контракт общий).
+- Протокол к ядру — `lekalo.target/v1` process/JSON protocol. Реализация и сборка находятся здесь; ядро использует внешний checkout по точному commit для интеграционных проверок.
+- Hono, Drizzle, Zod и PostgreSQL подключены как зависимости из отдельных репозиториев. Выбор произвольных провайдеров через конфигурацию и перенос на общий `lekalo/runtime/v1` остаются задачами [ichinya/lekalo#241](https://github.com/ichinya/lekalo/issues/241).
 - Общий план отделения — [ichinya/lekalo#241](https://github.com/ichinya/lekalo/issues/241).
 
 ## Исходники и самостоятельная сборка
 
-`adapters/node-typescript/` — исходная реализация runtime, compiler client, генераторы, Hono/Drizzle/Zod-расширения и тесты. Сохранена относительная структура, чтобы перенос не менял сгенерированные байты. `tests/fixtures/` и `docs/` содержат публичные данные для самостоятельных проверок; соседний checkout ядра не используется.
+`adapters/node-typescript/` — runtime, compiler client, языковые генераторы и тесты. Реализации Hono, Drizzle, Zod и PostgreSQL принадлежат `lekalo-typescript-hono`, `lekalo-typescript-drizzle`, `lekalo-typescript-zod` и `lekalo-postgres`; `package-lock.json` закрепляет их Git-коммиты. Сборка включает зависимости в распространяемый runtime. Их тесты и framework fixtures находятся в репозиториях владельцев. `tests/fixtures/` и `docs/` содержат публичные данные для самостоятельных проверок; соседний checkout ядра не используется.
 
 ```sh
 npm ci --prefix adapters/node-typescript --ignore-scripts --no-audit --no-fund
@@ -17,7 +17,7 @@ node adapters/node-typescript/build.mjs --check
 node --test --test-concurrency=1 adapters/node-typescript/test/*.test.mjs
 ```
 
-Lifecycle scripts намеренно запрещены: зависимости устанавливаются только с `--ignore-scripts`. Сканирование использует закреплённый native compiler; версия языка, версия runtime-пакета и версия хостового Node различаются. Основной репозиторий сохраняет проверяемый по commit+SHA-256 snapshot для переходной поставки и host-conformance. Изменения реализации вносятся сюда, затем обновляется snapshot.
+Lifecycle scripts намеренно запрещены: зависимости устанавливаются только с `--ignore-scripts`. Сканирование использует закреплённый native compiler; версия языка, версия runtime-пакета и версия хостового Node различаются. Runtime snapshot удалён из ядра; его development lock закрепляет внешний checkout. Регистрация провайдеров пока задана сборкой runtime: независимый выбор provider/rules через конфиг ещё не реализован.
 
 `ci/package-workflow.yml` — неактивный шаблон CI. Для автоматического запуска его нужно установить в `.github/workflows/` учётными данными с правом `workflow`; текущая публикация проверена локально.
 

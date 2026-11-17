@@ -27,7 +27,7 @@
  */
 
 import { createHash } from "node:crypto";
-import { canonicalJson, sha256 } from "./zod-emit.mjs";
+import { canonicalJson, sha256 } from "@lekalo/typescript-zod/zod-emit.mjs";
 import {
   IR_REF_MISMATCH,
   PORT_DOC_PATH,
