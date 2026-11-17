@@ -13,7 +13,11 @@
     "drizzle-orm": "0.45.4",
     "esbuild": "0.28.2",
     "typescript": "7.0.2",
-    "zod": "^4.6.7"
+    "zod": "^4.6.7",
+    "@lekalo/typescript-hono": "git+https://github.com/ichinya/lekalo-typescript-hono.git#23a6af187aa04cdece7265b60f811d1cd1bd7f6f",
+    "@lekalo/typescript-drizzle": "git+https://github.com/ichinya/lekalo-typescript-drizzle.git#9de613da191bf08fc0f6b6d7ef5a15bca57170b3",
+    "@lekalo/typescript-zod": "git+https://github.com/ichinya/lekalo-typescript-zod.git#63271a52b5fc5962f11bc15b07449a2bca0dd0d5",
+    "@lekalo/postgres": "git+https://github.com/ichinya/lekalo-postgres.git#c73585e0ee6c9e2193f4419be6ff0cfb8d03395a"
   },
   "engines": {
     "node": ">=18"

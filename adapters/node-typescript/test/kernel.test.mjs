@@ -446,7 +446,7 @@ test("the postgres-storage extension descriptor validates against the kernel voc
   // kernel's closed vocabulary and validate as a descriptor; the
   // describe handshake then advertises it only with a bound profile.
   const { createPostgresStorageExtension, STORAGE_DDL_CAPABILITY } = await import(
-    "../src/postgres-storage-extension.mjs"
+    "@lekalo/postgres/typescript-extension.mjs"
   );
   const apply = async () => ({ applied: 1, planId: "sha256:" + "a".repeat(64) });
   const descriptor = createPostgresStorageExtension(apply);

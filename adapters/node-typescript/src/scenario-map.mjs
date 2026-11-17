@@ -24,7 +24,7 @@
  *   can never report pass.
  */
 
-import { canonicalJson } from "./zod-emit.mjs";
+import { canonicalJson } from "@lekalo/typescript-zod/zod-emit.mjs";
 
 /** The exact accepted Scenario IR contract identity. */
 export const SCENARIO_IDENTITY = "dev.lekalo.scenario-ir@0.2.16";

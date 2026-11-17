@@ -32,6 +32,7 @@ import { join } from "node:path";
 
 import {
   RequestRefusal,
+  ADAPTER_VERSION,
   embeddedDrizzleDeclarations,
   embeddedLibFiles,
   vendoredTs,
@@ -41,8 +42,8 @@ import {
   drizzleClosureMapping,
   drizzleEvidenceSummary,
   resolveDrizzleAttachment,
-} from "./drizzle-evidence.mjs";
-import { HONO_PROVIDER_ID, scanHonoProvider } from "./hono-scanner.mjs";
+} from "@lekalo/typescript-drizzle/drizzle-evidence.mjs";
+import { HONO_PROVIDER_ID, scanHonoProvider } from "@lekalo/typescript-hono/hono-scanner.mjs";
 import {nativeInventory, ownedNativeSymbols, validNativeSymbols} from "./native-symbols.mjs";
 
 // ---------------------------------------------------------------------------
@@ -1658,6 +1659,7 @@ function runScanImpl({ profile, readView, permittedProjectRoot, limits, framewor
   // byte-identical to a Hono-unaware scan.
   if (frameworks.includes(HONO_PROVIDER_ID)) {
     const hono = scanHonoProvider({
+      adapterVersion: ADAPTER_VERSION,
       ts,
       checker,
       program,
