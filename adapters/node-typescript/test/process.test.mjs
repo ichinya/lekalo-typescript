@@ -164,3 +164,21 @@ test("the production kernel never emits a progress member", () => {
   assert.equal("progress" in envelope, false);
   assert.equal(envelope.capabilities.progress, false);
 });
+
+test('source and bundled entrypoints execute through a linked checkout', async () => {
+  const { symlinkSync } = await import('node:fs');
+  const { join } = await import('node:path');
+  const { fileURLToPath } = await import('node:url');
+  const { spawnSync } = await import('node:child_process');
+  const home = mkdtempSync(join(tmpdir(), 'lekalo-linked-entry-'));
+  try {
+    const source = fileURLToPath(new URL('../', import.meta.url));
+    const linked = join(home, 'package');
+    symlinkSync(source, linked, process.platform === 'win32' ? 'junction' : 'dir');
+    for (const entry of ['main.mjs', 'adapter.mjs', 'adapter-zod.mjs']) {
+      const result = spawnSync(process.execPath, [join(linked, entry), '--version-json'], {encoding:'utf8', timeout:20000});
+      assert.equal(result.status, 0, result.stderr);
+      assert.equal(JSON.parse(result.stdout).adapter.id, 'lekalo-target-node-typescript');
+    }
+  } finally { rmSync(home, {recursive:true, force:true}); }
+});

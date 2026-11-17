@@ -2631,7 +2631,7 @@ function runIfEntry(entryUrl) {
     return;
   }
   try {
-    if (resolve(process.argv[1]) === resolve(fileURLToPath(entryUrl))) {
+    if (realpathSync(resolve(process.argv[1])) === realpathSync(fileURLToPath(entryUrl))) {
       return main();
     }
   } catch {
