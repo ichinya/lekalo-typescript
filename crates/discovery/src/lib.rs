@@ -2,7 +2,11 @@
 #![forbid(unsafe_code)]
 use serde_json::Value;
 
-pub const MANIFESTS: &[(&str, &str)] = &[("package.json", "node")];
+pub const MANIFESTS: &[(&str, &str)] = &[
+    ("deno.json", "deno"),
+    ("deno.jsonc", "deno"),
+    ("package.json", "node"),
+];
 pub const MODULE_MANIFEST: &str = "package.json";
 pub const WORKSPACE_MANIFEST: &str = "pnpm-workspace.yaml";
 pub const WORKSPACE_MEMBERS_FIELD: &str = "packages";
