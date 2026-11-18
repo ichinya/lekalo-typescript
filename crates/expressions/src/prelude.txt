@@ -1,0 +1,254 @@
+
+// Prototype-free expression tables: `Object.create(null)` keeps the
+// declared records the only members, so an undeclared selector —
+// including a name matching an inherited Object.prototype member
+// (`constructor`, `toString`, `__proto__`, `hasOwnProperty`) — can
+// never pass the declaration check through an inherited property.
+const LEK = Object.create(null);
+const LEK_TYPES = Object.create(null);
+const LEK_PARAMS = Object.create(null);
+const LEK_MAX_INT = 9007199254740991n;
+const LEK_MAX_DUR = 31536000000n;
+let lekEnv = { clockText: null, bindings: {} };
+function lekFail(token) { const error = new Error(token); error.lekToken = token; throw error; }
+function lekIntBound(v) { if (v > LEK_MAX_INT || v < -LEK_MAX_INT) { lekFail("int-overflow"); } return v; }
+function lekAdd(a, b) { return lekIntBound(a + b); }
+function lekSub(a, b) { return lekIntBound(a - b); }
+function lekMul(a, b) { return lekIntBound(a * b); }
+function lekDiv(a, b) { if (b === 0n) { lekFail("divide-by-zero"); } return lekIntBound(a / b); }
+function lekMod(a, b) { if (b === 0n) { lekFail("modulo-by-zero"); } return lekIntBound(a % b); }
+function lekAbs(a) { return lekIntBound(a < 0n ? -a : a); }
+function lekDurBound(v) { if (v > LEK_MAX_DUR || v < -LEK_MAX_DUR) { lekFail("duration-overflow"); } return v; }
+function lekDurAdd(a, b) { return lekDurBound(a + b); }
+function lekDurSub(a, b) { return lekDurBound(a - b); }
+function lekDurMul(a, b) { return lekDurBound(a * b); }
+function lekDurDiv(a, b) { if (b === 0n) { lekFail("divide-by-zero"); } return lekDurBound(a / b); }
+function lekDurSeconds(d) { return d; }
+function lekCivil(z0) {
+  const z = z0 + 719468n;
+  const era = (z >= 0n ? z : z - 146096n) / 146097n;
+  const doe = z - era * 146097n;
+  const yoe = (doe - doe / 1460n + doe / 36524n - doe / 146096n) / 365n;
+  const y = yoe + era * 400n;
+  const doy = doe - (365n * yoe + yoe / 4n - yoe / 100n);
+  const mp = (5n * doy + 2n) / 153n;
+  const d = doy - (153n * mp + 2n) / 5n + 1n;
+  const m = mp < 10n ? mp + 3n : mp - 9n;
+  return [m <= 2n ? y + 1n : y, m, d];
+}
+function lekFromCivil(y0, m, d) {
+  const y = m <= 2n ? y0 - 1n : y0;
+  const era = (y >= 0n ? y : y - 399n) / 400n;
+  const yoe = y - era * 400n;
+  const mp = m > 2n ? m - 3n : m + 9n;
+  const doy = (153n * mp + 2n) / 5n + d - 1n;
+  const doe = yoe * 365n + yoe / 4n - yoe / 100n + doy;
+  return era * 146097n + doe - 719468n;
+}
+function lekFloorDiv(a, b) {
+  const q = a / b;
+  const r = a % b;
+  return r !== 0n && ((r < 0n) !== (b < 0n)) ? q - 1n : q;
+}
+function lekDaysInMonth(y, m) {
+  if (m === 2n) { const leap = (y % 4n === 0n && y % 100n !== 0n) || y % 400n === 0n; return leap ? 29n : 28n; }
+  return (m === 4n || m === 6n || m === 9n || m === 11n) ? 30n : 31n;
+}
+function lekValidFields(y, mo, d, h, mi, s) {
+  if (y < 1n || y > 9999n || mo < 1n || mo > 12n) { return false; }
+  if (d < 1n || d > lekDaysInMonth(y, mo)) { return false; }
+  return h <= 23n && mi <= 59n && s <= 59n;
+}
+function lekDtRange(d) {
+  const y = lekCivil(lekFloorDiv(d, 86400n))[0];
+  return y >= 1n && y <= 9999n;
+}
+function lekDtAdd(d, s) { const r = d + s; if (!lekDtRange(r)) { lekFail("datetime-overflow"); } return r; }
+function lekDtSub(d, s) { const r = d - s; if (!lekDtRange(r)) { lekFail("datetime-overflow"); } return r; }
+function lekDtDiff(a, b) { return lekDurBound(a - b); }
+function lekYear(d) { return lekCivil(lekFloorDiv(d, 86400n))[0]; }
+function lekMonth(d) { return lekCivil(lekFloorDiv(d, 86400n))[1]; }
+function lekDay(d) { return lekCivil(lekFloorDiv(d, 86400n))[2]; }
+function lekWeekday(d) { const days = lekFloorDiv(d, 86400n); return ((days + 3n) % 7n + 7n) % 7n + 1n; }
+function lekDtRender(d) {
+  const days = lekFloorDiv(d, 86400n);
+  const time = ((d % 86400n) + 86400n) % 86400n;
+  const parts = lekCivil(days);
+  const pad = (v, n) => v.toString().padStart(n, "0");
+  return pad(parts[0], 4) + "-" + pad(parts[1], 2) + "-" + pad(parts[2], 2) + "T" + pad(time / 3600n, 2) + ":" + pad((time % 3600n) / 60n, 2) + ":" + pad(time % 60n, 2) + "Z";
+}
+function lekClock() {
+  // Only an omitted clock reads the shared epoch default, exactly
+  // like the reference decode; an explicit null or any present
+  // noncanonical clock refuses with the closed clock token (the
+  // runner validates a supplied clock eagerly, before evaluation).
+  if (!lekEnv.clockPresent) { return 0n; }
+  const f = lekCheckClock(lekEnv.clockText);
+  return lekFromCivil(f[0], f[1], f[2]) * 86400n + f[3] * 3600n + f[4] * 60n + f[5];
+}
+function lekCheckClock(text) {
+  if (typeof text !== "string") { lekFail("clock-invalid"); }
+  const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})Z$/.exec(text);
+  if (!m) { lekFail("clock-invalid"); }
+  const f = [1, 2, 3, 4, 5, 6].map((i) => BigInt(m[i]));
+  if (!lekValidFields(f[0], f[1], f[2], f[3], f[4], f[5])) { lekFail("clock-invalid"); }
+  return f;
+}
+function lekGet(scope, field, convert) {
+  // Own-property membership only: an inherited Object.prototype
+  // member (a declared field may be named `constructor`) is never a
+  // binding.
+  const scopeMap = lekEnv.bindings[scope];
+  if (!scopeMap || typeof scopeMap !== "object" || !Object.prototype.hasOwnProperty.call(scopeMap, field)) { lekFail("binding-missing"); }
+  const v = scopeMap[field];
+  if (v === null || v === undefined) { lekFail("binding-null"); }
+  return convert(v);
+}
+function toBig(v) {
+  // The exact JSON scalar types: only a JSON integer literal is an
+  // int binding (numeric strings, fractional spellings, and the
+  // negative-zero spelling the raw scan misses are refused), and the
+  // family integer bound applies (an out-of-range double still
+  // compares above the bound after the rounded parse).
+  if (typeof v !== "number" || !Number.isInteger(v) || Object.is(v, -0)) { lekFail("binding-value"); }
+  if (typeof v !== "number" || !Number.isInteger(v)) { lekFail("binding-value"); }
+  const big = BigInt(v);
+  if (big > LEK_MAX_INT || big < -LEK_MAX_INT) { lekFail("binding-value"); }
+  return big;
+}
+function toStr(v) {
+  if (typeof v !== "string" || !lekStrOk(v) || Buffer.byteLength(v) > 256) { lekFail("binding-value"); }
+  return v;
+}
+function toBool(v) { if (typeof v !== "boolean") { lekFail("binding-value"); } return v; }
+function lekDurValue(v) { if (v > LEK_MAX_DUR || v < -LEK_MAX_DUR) { lekFail("binding-value"); } return v; }
+function lekSetCmp(a, b) {
+  if (typeof a === "boolean") { return a === b ? 0 : (a ? 1 : -1); }
+  return a < b ? -1 : (a > b ? 1 : 0);
+}
+function toSet(v, convert) {
+  if (!Array.isArray(v)) { lekFail("binding-value"); }
+  if (v.length > 64) { lekFail("binding-value"); }
+  const items = v.map((item) => convert(item));
+  items.sort((a, b) => lekSetCmp(a, b));
+  for (let i = 1; i < items.length; i++) { if (lekSetCmp(items[i - 1], items[i]) === 0) { lekFail("binding-value"); } }
+  return items;
+}
+function lekGetBool(scope, field) { return lekGet(scope, field, toBool); }
+function lekGetInt(scope, field) { return lekGet(scope, field, toBig); }
+function lekGetStr(scope, field) { return lekGet(scope, field, toStr); }
+function lekGetDt(scope, field) { return lekParseClockText(lekGet(scope, field, toStr)); }
+function lekGetDur(scope, field) { return lekGet(scope, field, (v) => lekDurValue(toBig(v))); }
+function lekGetSetBool(scope, field) { return lekGet(scope, field, (v) => toSet(v, toBool)); }
+function lekGetSetInt(scope, field) { return lekGet(scope, field, (v) => toSet(v, toBig)); }
+function lekGetSetStr(scope, field) { return lekGet(scope, field, (v) => toSet(v, toStr)); }
+function lekGetSetDt(scope, field) { return lekGet(scope, field, (v) => toSet(v, (s) => lekParseClockText(toStr(s)))); }
+function lekGetSetDur(scope, field) { return lekGet(scope, field, (v) => toSet(v, (s) => lekDurValue(toBig(s)))); }
+const LEK_PARAM_GETTERS = {
+  "bool": lekGetBool,
+  "int": lekGetInt,
+  "string": lekGetStr,
+  "datetime": lekGetDt,
+  "duration": lekGetDur,
+  "set:bool": lekGetSetBool,
+  "set:int": lekGetSetInt,
+  "set:string": lekGetSetStr,
+  "set:datetime": lekGetSetDt,
+  "set:duration": lekGetSetDur
+};
+function lekValidateBindings(params, bindings) {
+  // The eager per-record binding validation the reference performs
+  // before evaluation, in exactly the reference pass order: first
+  // every scope name and scope shape, then every field name across
+  // all scopes, then every declared parameter value — presence
+  // (even for nullable references), nullability, and every typed
+  // value, including values on branches the body never takes.
+  if (typeof bindings !== "object" || bindings === null || Array.isArray(bindings)) { lekFail("bindings-shape"); }
+  for (const scope of Object.keys(bindings).sort()) {
+    if (scope !== "input" && scope !== "actor" && scope !== "entity" && scope !== "result") { lekFail("binding-unknown"); }
+    const scopeMap = bindings[scope];
+    if (typeof scopeMap !== "object" || scopeMap === null || Array.isArray(scopeMap)) { lekFail("bindings-shape"); }
+  }
+  for (const scope of Object.keys(bindings).sort()) {
+    const scopeMap = bindings[scope];
+    for (const field of Object.keys(scopeMap).sort()) {
+      let known = false;
+      for (const p of params) { if (p.s === scope && p.f === field) { known = true; break; } }
+      if (!known) { lekFail("binding-unknown"); }
+    }
+  }
+  for (const p of params) {
+    const scopeMap = bindings[p.s];
+    if (!scopeMap || typeof scopeMap !== "object" || !Object.prototype.hasOwnProperty.call(scopeMap, p.f)) { lekFail("binding-missing"); }
+    if (scopeMap[p.f] === null) { if (!p.n) { lekFail("binding-null"); } continue; }
+    const getter = LEK_PARAM_GETTERS[p.t];
+    if (!getter) { lekFail("binding-value"); }
+    getter(p.s, p.f);
+  }
+}
+function lekParseClockText(text) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})Z$/.exec(text);
+  if (!m) { lekFail("binding-value"); }
+  const f = [1, 2, 3, 4, 5, 6].map((i) => BigInt(m[i]));
+  if (!lekValidFields(f[0], f[1], f[2], f[3], f[4], f[5])) { lekFail("binding-value"); }
+  return lekFromCivil(f[0], f[1], f[2]) * 86400n + f[3] * 3600n + f[4] * 60n + f[5];
+}
+function lekIsNull(scope, field) { const scopeMap = lekEnv.bindings[scope]; return !scopeMap || typeof scopeMap !== "object" || !Object.prototype.hasOwnProperty.call(scopeMap, field) || scopeMap[field] === null || scopeMap[field] === undefined; }
+function lekNotNull(scope, field) { return !lekIsNull(scope, field); }
+function lekLen(s) { return BigInt(s.length); }
+function lekConcat(a, b) {
+  const s = a + b;
+  let bytes = 0;
+  for (const ch of s) {
+    const c = ch.codePointAt(0);
+    bytes += c <= 0x7F ? 1 : (c <= 0x7FF ? 2 : (c <= 0xFFFF ? 3 : 4));
+  }
+  if (bytes > 256 || !lekStrOk(s)) { lekFail("concat-overflow"); }
+  return s;
+}
+function lekStrOk(s) {
+  for (const ch of s) {
+    const c = ch.codePointAt(0);
+    if (c > 0xFFFF || c < 0x20 || (c >= 0xD800 && c <= 0xDFFF)) { return false; }
+  }
+  return true;
+}
+function lekLower(s) {
+  let out = "";
+  for (const ch of s) {
+    const c = ch.codePointAt(0);
+    out += c >= 65 && c <= 90 ? String.fromCharCode(c + 32) : ch;
+  }
+  return out;
+}
+function lekUpper(s) {
+  let out = "";
+  for (const ch of s) {
+    const c = ch.codePointAt(0);
+    out += c >= 97 && c <= 122 ? String.fromCharCode(c - 32) : ch;
+  }
+  return out;
+}
+function lekCmpStr(a, b) { return a < b ? -1 : (a > b ? 1 : 0); }
+function lekContains(a, b) { return a.includes(b); }
+function lekStartsWith(a, b) { return a.startsWith(b); }
+function lekEndsWith(a, b) { return a.endsWith(b); }
+function lekIntToStr(n) { return n.toString(); }
+function lekStrToInt(s) {
+  if (!/^-?(0|[1-9][0-9]{0,15})$/.test(s)) { lekFail("cast-invalid"); }
+  const v = BigInt(s);
+  if (v > LEK_MAX_INT || v < -LEK_MAX_INT) { lekFail("cast-invalid"); }
+  return v;
+}
+function lekHasBool(v, items) { return items.includes(v); }
+function lekHasInt(v, items) { return items.includes(v); }
+function lekHasStr(v, items) { return items.includes(v); }
+function lekHasDt(v, items) { return items.includes(v); }
+function lekHasDur(v, items) { return items.includes(v); }
+function lekSetLitBool(...items) { return items; }
+function lekSetLitInt(...items) { return items; }
+function lekSetLitStr(...items) { return items; }
+function lekSetLitDt(...items) { return items; }
+function lekSetLitDur(...items) { return items; }
+function lekSetLitAny(...items) { return items; }
+function lekFailInvalid() { lekFail("cast-invalid"); }
