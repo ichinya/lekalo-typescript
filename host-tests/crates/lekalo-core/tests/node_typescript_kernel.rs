@@ -179,3 +179,74 @@ fn the_kernel_refuses_invalid_protocol_input_without_a_fake_envelope() {
     );
     assert!(stderr.len() < 512, "stderr stays bounded");
 }
+
+#[test]
+fn the_committed_adapter_manifest_parses() {
+    let bytes = include_bytes!(
+        "../../../tests/external/lekalo-typescript/adapters/node-typescript/adapter.manifest.json",
+    );
+    let document = lekalo_core::adapter_package::ManifestDocument::from_bytes(bytes)
+        .expect("the committed adapter manifest must parse");
+    assert_eq!(document.adapter_id(), "lekalo-target-node-typescript");
+    assert_eq!(document.adapter_version().as_str(), "1.3.0");
+    // The qualified bundler rebuild changes the embedded artifact.
+    // Keep the exemplar bound to the rebuilt package
+    // digest independently verified by test-adapter-manifest-golden.
+    assert_eq!(
+        document.package_digest().as_str(),
+        "sha256:781c998fd29f9efdab3e7443ff3d564a30fc07ab178f174268029fa2ee53019e"
+    );
+}
+
+/// Cross-check the JS-authored package digest, then require the
+/// separately provisioned runtime rather than admitting a JS-only copy.
+#[test]
+fn the_committed_exemplar_requires_its_provisioned_runtime() {
+    use lekalo_core::adapter_package::{
+        discovery::Custody, integrity::MANIFEST_FILE, verify_package, PackageFailure,
+    };
+    let root = std::env::temp_dir().join(format!(
+        "lekalo-ap-exemplar-{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("clock")
+            .as_nanos()
+    ));
+    std::fs::create_dir_all(&root).expect("mkdir");
+    let manifest_source = include_bytes!(
+        "../../../tests/external/lekalo-typescript/adapters/node-typescript/adapter.manifest.json"
+    );
+    let document = lekalo_core::adapter_package::ManifestDocument::from_bytes(manifest_source)
+        .expect("committed manifest parses");
+    // Copy the committed payload into the temp package root.
+    let payload = include_bytes!(
+        "../../../tests/external/lekalo-typescript/adapters/node-typescript/adapter.mjs"
+    );
+    std::fs::write(root.join("adapter.mjs"), payload).expect("payload");
+    std::fs::write(
+        root.join("runtime-bundle.json"),
+        include_bytes!("../../../tests/external/lekalo-typescript/adapters/node-typescript/runtime-bundle.json"),
+    )
+    .unwrap();
+    std::fs::write(
+        root.join("typescript-native-notices.txt"),
+        include_bytes!("../../../tests/external/lekalo-typescript/adapters/node-typescript/typescript-native-notices.txt"),
+    )
+    .unwrap();
+    std::fs::write(root.join(MANIFEST_FILE), manifest_source).expect("manifest");
+    let candidate = lekalo_core::adapter_package::discovery::DiscoveryCandidate {
+        manifest: document,
+        package_root: Some(root.clone()),
+        synthesized: false,
+        custody: Custody::ProjectPath,
+    };
+    // The committed payload and framed package digest must pass first.
+    // A source-only package then refuses its missing native resources;
+    // the provisioned cross-platform runtime gate proves full admission.
+    assert!(matches!(
+        verify_package(&candidate),
+        Err(PackageFailure::ChecksumMismatch { domain, .. }) if domain == "runtime-bundle"
+    ));
+    let _ = std::fs::remove_dir_all(&root);
+}

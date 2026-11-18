@@ -135,7 +135,9 @@ jobs:
       - name: Run the OpenAPI generator gate (issue #46)
         run: node scripts/test-node-openapi.mjs
       - name: Run the scenario-test compiler gate (issue #47)
-        run: node scripts/test-node-scenario-tests.mjs
+        run: |
+          node scripts/test-node-scenario-tests.mjs
+          NODE_PATH="$RUNNER_TEMP/lekalo-ajv-8.20.0/node_modules" node scripts/test-docs-examples.mjs --lane observed
       - name: Run the scenario unit suites (issue #47 review F-11)
         run: node scripts/test-node-scenario-units.mjs
       - name: Run the native gate contract gate (issue #48)
@@ -198,6 +200,7 @@ jobs:
         run: node scripts/test-mvp-workflow.mjs
       - name: Run the adapter integration tests through Cargo
         run: |
+          cargo test --locked -p lekalo-cli --test package_adoption
           cargo test --locked -p lekalo-core --test node_typescript_kernel --test node_typescript_scanner
       - name: Remove the CI-only AppArmor launcher prerequisite
         if: always() && runner.os == 'Linux'
