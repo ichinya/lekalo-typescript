@@ -96,6 +96,10 @@ jobs:
       - name: Build the native contract oracle
         run: |
           cargo build --locked -p lekalo-core --example typescript-native-contract
+      - name: Check the candidate lint collector against the host evidence contract
+        env:
+          LEKALO_AJV_NODE_PATH: ${{ runner.temp }}/lekalo-ajv-8.20.0/node_modules
+        run: node scripts/test-ai-lint-adapter.mjs
       - name: Run the Node/TypeScript kernel suite (issue #43)
         run: node scripts/test-node-typescript-kernel.mjs
       - name: Run the adapter manifest contract gate (issue #32)
