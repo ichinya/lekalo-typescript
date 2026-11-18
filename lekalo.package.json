@@ -1,0 +1,22 @@
+{
+  "schema": "lekalo/package/v1",
+  "id": "lekalo-typescript",
+  "version": "0.2.0",
+  "kind": "runtime",
+  "command": [
+    "node",
+    "runtime/entry.cjs"
+  ],
+  "libraries": {
+    "parser": "gh/ichinya/lekalo-adapter-sdk#19ac25a7e815a09caf8925960595ffe3851d584d"
+  },
+  "files": [
+    "runtime/entry.cjs",
+    "runtime/grammar.json",
+    "runtime/LICENSE.grammar",
+    "runtime/tree-sitter-typescript.wasm",
+    "runtime/tree-sitter-tsx.wasm",
+    "runtime/http.cjs",
+    "runtime/factories.cjs"
+  ]
+}

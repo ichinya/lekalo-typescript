@@ -1,0 +1,144 @@
+
+function lekEncodeTyped(value, ty) {
+  if (ty === "datetime") { return lekDtRender(value); }
+  if (ty && ty.startsWith("set:")) {
+    const inner = ty.slice(4);
+    return value.map((item) => lekEncodeTyped(item, inner));
+  }
+  if (typeof value === "bigint") { return Number(value); }
+  return value;
+}
+function lekCanonicalDocumentText(text) {
+  // The reference JSON decoder refuses non-integer spellings of
+  // int/duration bindings (42.0, 1e2), the negative-zero integer
+  // spelling (-0, which the reference parse preserves as a float
+  // and refuses), and lone surrogate escapes: scan the raw document
+  // text and reject any of those shapes before any row is
+  // evaluated.
+  let i = 0;
+  while (i < text.length) {
+    const c = text[i];
+    if (c === "\"") {
+      i += 1;
+      while (i < text.length) {
+        if (text[i] === "\\") {
+          if (text[i + 1] === "u") {
+            const cp = parseInt(text.slice(i + 2, i + 6), 16);
+            if (Number.isNaN(cp)) { return false; }
+            if (cp >= 0xD800 && cp <= 0xDBFF) {
+              // A high surrogate must be followed by its low pair.
+              if (text.slice(i + 6, i + 8) !== "\\u") { return false; }
+              const lo = parseInt(text.slice(i + 8, i + 12), 16);
+              if (Number.isNaN(lo) || lo < 0xDC00 || lo > 0xDFFF) { return false; }
+              i += 12;
+              continue;
+            }
+            if (cp >= 0xDC00 && cp <= 0xDFFF) { return false; }
+            i += 6;
+            continue;
+          }
+          i += 2;
+          continue;
+        }
+        if (text[i] === "\"") { i += 1; break; }
+        i += 1;
+      }
+      continue;
+    }
+    if (c === "-" || (c >= "0" && c <= "9")) {
+      let j = i + 1;
+      while (j < text.length && "0123456789.eE+-".includes(text[j])) { j += 1; }
+      const token = text.slice(i, j);
+      if (!/^-?(0|[1-9][0-9]*)$/.test(token) || token === "-0") { return false; }
+      i = j;
+      continue;
+    }
+    i += 1;
+  }
+  return true;
+}
+function lekInputRefuse() {
+  process.stderr.write("lekalo vector input error\n");
+  process.exit(1);
+}
+function lekMain() {
+  const bytes = require("fs").readFileSync(0);
+  let raw = null;
+  try {
+    // Strict UTF-8: the original stdin bytes must decode without
+    // replacement, so malformed sequences refuse the document at the
+    // runner boundary instead of manufacturing replacement-character
+    // binding data. A legal U+FFFD string stays accepted, and a byte
+    // order mark is kept so the JSON parse refuses it exactly like
+    // the reference.
+    raw = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(bytes);
+  } catch (error) {
+    lekInputRefuse();
+  }
+  if (!lekCanonicalDocumentText(raw)) {
+    lekInputRefuse();
+  }
+  let doc;
+  try {
+    doc = JSON.parse(raw);
+  } catch (error) {
+    lekInputRefuse();
+  }
+  // The evaluation vectors are a JSON array of non-null objects: an
+  // iterable string, a scalar, or a non-object element refuses the
+  // document at the boundary instead of iterating into fabricated
+  // result rows.
+  if (typeof doc !== "object" || doc === null || !Array.isArray(doc.vectors)) {
+    lekInputRefuse();
+  }
+  const results = [];
+  for (const vector of doc.vectors) {
+    if (typeof vector !== "object" || vector === null || Array.isArray(vector)) {
+      lekInputRefuse();
+    }
+    // The consumed id is echoed into the result row, so only a
+    // primitive string id can reach the envelope: a null, number,
+    // boolean, object, array, or absent id refuses the document
+    // instead of emitting a malformed or id-less value row.
+    if (typeof vector.id !== "string") {
+      lekInputRefuse();
+    }
+    // Presence is distinct from value: only an omitted clock reads
+    // the epoch default, and an explicit null or malformed supplied
+    // clock refuses even when the body never reads it.
+    lekEnv = {
+      clockText: vector.clock,
+      clockPresent: Object.prototype.hasOwnProperty.call(vector, "clock"),
+      bindings: vector.bindings
+    };
+    const row = { id: vector.id };
+    try {
+      if (lekEnv.clockPresent) { lekCheckClock(lekEnv.clockText); }
+      // Only a primitive string selects an expression record: the
+      // selector is validated before any table lookup, so an array,
+      // object, or scalar can never be coerced into an expression
+      // name and computed. The supplied-clock check above keeps its
+      // first place on a double-fault vector.
+      if (typeof vector.expression !== "string") { lekFail("expression-unknown"); }
+      const params = LEK_PARAMS[vector.expression];
+      if (!params) { lekFail("expression-unknown"); }
+      lekValidateBindings(params, vector.bindings);
+      const fn = LEK[vector.expression];
+      row.value = lekEncodeTyped(fn(lekEnv), LEK_TYPES[vector.expression]);
+    } catch (error) {
+      row.error = error.lekToken || "runtime-error";
+      delete row.value;
+    }
+    results.push(row);
+  }
+  process.stdout.write(JSON.stringify({ results }) + "\n");
+}
+try {
+  lekMain();
+} catch (error) {
+  // Runner boundary: any document-level failure — read, decode,
+  // parse, or envelope shape — emits only the fixed bounded refusal.
+  // The caught exception text, a stack trace, raw binding data, and
+  // any host path stay undisclosed.
+  lekInputRefuse();
+}

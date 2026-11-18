@@ -1,0 +1,27 @@
+{
+  "id": "lekalo-typescript",
+  "version": "0.2.0",
+  "grammars": [
+    {
+      "file": "tree-sitter-typescript.wasm",
+      "extensions": [
+        ".ts",
+        ".mts",
+        ".cts"
+      ],
+      "declarations": "(function_declaration name: (identifier) @function)\n(class_declaration name: (type_identifier) @class)\n(interface_declaration name: (type_identifier) @interface)\n(type_alias_declaration name: (type_identifier) @type)"
+    },
+    {
+      "file": "tree-sitter-tsx.wasm",
+      "extensions": [
+        ".tsx"
+      ],
+      "declarations": "(function_declaration name: (identifier) @function)\n(class_declaration name: (type_identifier) @class)\n(interface_declaration name: (type_identifier) @interface)\n(type_alias_declaration name: (type_identifier) @type)"
+    }
+  ],
+  "capabilities": [
+    "http.routes/v1",
+    "storage.tables/v1",
+    "validation.schemas/v1"
+  ]
+}

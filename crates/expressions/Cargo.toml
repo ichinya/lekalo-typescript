@@ -1,0 +1,22 @@
+[package]
+name = "lekalo-expressions-node"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.89.0"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/ichinya/lekalo-typescript"
+publish = false
+
+[dependencies]
+lekalo-expression-provider = { git = "https://github.com/ichinya/lekalo-adapter-sdk", rev = "6ceb7dc4d085b8cb6cff5a02a6b249c8e841f85b" }
+serde_json = "1.0"
+
+[workspace]
+
+[profile.dev]
+debug = 0
+incremental = false
+
+[profile.test]
+debug = 0
+incremental = false
