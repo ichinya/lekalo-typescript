@@ -30,6 +30,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 use lekalo_typescript_discovery as d;
 const ID: &str = "lekalo-typescript-discovery";
 const FILES: &[&str] = &[
+    "deno.json",
+    "deno.jsonc",
     "package.json",
     "tsconfig.json",
     "package-lock.json",
