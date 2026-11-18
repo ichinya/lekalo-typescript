@@ -3,6 +3,7 @@
   "crates/lekalo-core/examples/typescript-native-contract.rs",
   "crates/lekalo-core/tests/node_typescript_kernel.rs",
   "crates/lekalo-core/tests/node_typescript_scanner.rs",
+  "scripts/pilot-brownfield-ts.mjs",
   "scripts/test-adapter-manifest-golden.mjs",
   "scripts/test-client-sdk-runtime.mjs",
   "scripts/test-docs-examples.mjs",
