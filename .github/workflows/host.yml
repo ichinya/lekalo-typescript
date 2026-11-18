@@ -21,7 +21,7 @@ jobs:
       run:
         shell: bash
     steps:
-      - uses: ichinya/lekalo-adapter-sdk/.github/actions/stage-host-tests@2c8009f10afebce94a60e14470b8fec115d9a87c
+      - uses: ichinya/lekalo-adapter-sdk/.github/actions/stage-host-tests@ebe6ce17bd948d52850fb1a600e07a1ddbee7062
         with:
           host: 9eb07ce8f21f96a9a160d382ac6280b9fa0fbcbe
       - name: Provision pinned external integration packages
@@ -175,6 +175,30 @@ jobs:
           # NODE_PATH is colon-delimited on POSIX and semicolon-delimited on Windows.
           delim=":"; if [ "$RUNNER_OS" = "Windows" ]; then delim=";"; fi
           NODE_PATH="$NODE_PATH$delim$RUNNER_TEMP/lekalo-client-sdk-vue/node_modules" node scripts/test-client-sdk-runtime.mjs
+      - name: Build the release CLI for the native tool gates
+        run: |
+          cargo build --release --locked -p lekalo-cli --bin lekalo
+          node -e 'require("node:fs").appendFileSync(process.env.GITHUB_ENV,"LEKALO_BIN="+require("node:path").resolve("target/release/lekalo"+(process.platform==="win32"?".exe":""))+"\n")'
+      - name: Execute declared workspace tools through production verify (issue #156)
+        timeout-minutes: 15
+        env:
+          LEKALO_AJV_NODE_PATH: ${{ runner.temp }}/lekalo-ajv-8.20.0/node_modules
+          LEKALO_NODE_TOOLS_HOME: ${{ runner.temp }}/lekalo-declared-node-tools
+          LEKALO_NATIVE_REPORTS_DIR: ${{ runner.temp }}/lekalo-native-acceptance
+        run: |
+          set -euo pipefail
+          node scripts/gen-node-native-contracts.mjs --check
+          NODE_PATH="$LEKALO_AJV_NODE_PATH" node scripts/test-node-native-tools.mjs --provision
+      - name: "Qualify the clean MVP user workflow (issue #1)"
+        timeout-minutes: 15
+        env:
+          LEKALO_AJV_NODE_PATH: ${{ runner.temp }}/lekalo-ajv-8.20.0/node_modules
+          LEKALO_NODE_TOOLS_HOME: ${{ runner.temp }}/lekalo-declared-node-tools
+          LEKALO_NATIVE_REPORTS_DIR: ${{ runner.temp }}/lekalo-mvp-acceptance
+        run: node scripts/test-mvp-workflow.mjs
+      - name: Run the adapter integration tests through Cargo
+        run: |
+          cargo test --locked -p lekalo-core --test node_typescript_kernel --test node_typescript_scanner
       - name: Remove the CI-only AppArmor launcher prerequisite
         if: always() && runner.os == 'Linux'
         timeout-minutes: 1
@@ -204,7 +228,7 @@ jobs:
           --health-cmd="mysqladmin ping --silent"
           --health-interval=10s --health-timeout=5s --health-retries=20
     steps:
-      - uses: ichinya/lekalo-adapter-sdk/.github/actions/stage-host-tests@2c8009f10afebce94a60e14470b8fec115d9a87c
+      - uses: ichinya/lekalo-adapter-sdk/.github/actions/stage-host-tests@ebe6ce17bd948d52850fb1a600e07a1ddbee7062
         with:
           host: 9eb07ce8f21f96a9a160d382ac6280b9fa0fbcbe
       - uses: dtolnay/rust-toolchain@stable

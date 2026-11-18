@@ -1,5 +1,9 @@
 [
+  "crates/lekalo-core/examples/typescript-native-contract.rs",
+  "crates/lekalo-core/tests/node_typescript_kernel.rs",
+  "crates/lekalo-core/tests/node_typescript_scanner.rs",
   "scripts/test-client-sdk-runtime.mjs",
+  "scripts/test-mvp-workflow.mjs",
   "scripts/test-pilot-brownfield-ts.mjs",
   "scripts/test-public-typescript-roundtrip.mjs",
   "scripts/test-public-typescript-scan.mjs",
