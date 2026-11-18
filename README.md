@@ -19,7 +19,7 @@ node --test --test-concurrency=1 adapters/node-typescript/test/*.test.mjs
 
 Lifecycle scripts намеренно запрещены: зависимости устанавливаются только с `--ignore-scripts`. Сканирование использует закреплённый native compiler; версия языка, версия runtime-пакета и версия хостового Node различаются. Runtime snapshot удалён из ядра; его development lock закрепляет внешний checkout. Регистрация провайдеров пока задана сборкой runtime: независимый выбор provider/rules через конфиг ещё не реализован.
 
-`ci/package-workflow.yml` — неактивный шаблон CI. Для автоматического запуска его нужно установить в `.github/workflows/` учётными данными с правом `workflow`; текущая публикация проверена локально.
+GitHub Actions запускает [проверки пакета](.github/workflows/ci.yml) для pull request и изменений в `main`.
 
 ## Распознавание проектов для `init --adopt`
 
