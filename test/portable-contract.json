@@ -1,0 +1,27 @@
+{
+  "rules": {
+    "schema": "lekalo/contract-rules/v1",
+    "requires": [
+      "source.declarations/v1"
+    ],
+    "checks": [
+      {
+        "id": "public-declaration",
+        "schema": {
+          "required": [
+            "declarations"
+          ],
+          "properties": {
+            "declarations": {
+              "type": "array",
+              "minItems": 1
+            }
+          }
+        }
+      }
+    ]
+  },
+  "path": "app.ts",
+  "valid": "export function health() {}",
+  "invalid": "// empty source"
+}
