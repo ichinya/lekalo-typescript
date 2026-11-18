@@ -1,0 +1,230 @@
+name: Host integration
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+env:
+  CARGO_INCREMENTAL: '0'
+  CARGO_PROFILE_DEV_DEBUG: '0'
+  CARGO_PROFILE_TEST_DEBUG: '0'
+jobs:
+  compatibility:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-26.04, windows-latest, macos-latest]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: ichinya/lekalo-adapter-sdk/.github/actions/stage-host-tests@2c8009f10afebce94a60e14470b8fec115d9a87c
+        with:
+          host: 9eb07ce8f21f96a9a160d382ac6280b9fa0fbcbe
+      - name: Provision pinned external integration packages
+        run: node scripts/external-tool.mjs --provision
+      - name: Use physical temporary paths for synthetic project fixtures
+        run: |
+          node --input-type=module <<'NODE'
+          import {appendFileSync, realpathSync} from 'node:fs';
+          import {tmpdir} from 'node:os';
+          // The native Windows resolver also expands 8.3 names.
+          const root = realpathSync.native(tmpdir());
+          for (const name of ['TEMP', 'TMP', 'TMPDIR']) {
+            appendFileSync(process.env.GITHUB_ENV, `${name}=${root}\n`);
+          }
+          NODE
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Build the pinned host and its selected fixture services
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/external-tool.mjs --build-services
+          cargo build --locked -p lekalo-cli --bins
+          node -e 'const p=require("node:path"), fs=require("node:fs"), ext=process.platform==="win32"?".exe":""; for(const [k,n] of [["LEKALO_BIN","lekalo"],["LEKALO_DEBUG_BIN","lekalo"],["LEKALO_SDK_ORACLE","adapter-sdk-oracle"]]) fs.appendFileSync(process.env.GITHUB_ENV,k+"="+p.resolve("target/debug/"+n+ext)+"\n")'
+      - name: Provision PHP 8.3 (issue #54, visible setup step, no project install)
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          # Composer is needed on every OS by the issue #56 fixture
+          # provisioning step (the locked vendor tree is not committed).
+          tools: composer
+          # The locked Laravel runtime of the issue #56 fixture needs its
+          # platform extensions; every dependency-free suite is unaffected.
+          extensions: mbstring, openssl, pdo_sqlite, sqlite3, tokenizer, xml, dom, xmlwriter, ctype, fileinfo, iconv, session
+        id: php
+      - name: Provision exact Ajv 8.20.0 outside the checkout (issues #32, #48)
+        run: |
+          set -euo pipefail
+          npm install --prefix "$RUNNER_TEMP/lekalo-ajv-8.20.0" --ignore-scripts --no-audit --no-fund --no-save ajv@8.20.0
+          export NODE_PATH="$RUNNER_TEMP/lekalo-ajv-8.20.0/node_modules"
+          test "$(node -p "require('ajv/package.json').version")" = "8.20.0"
+      - name: Provision the Linux process confinement backend
+        if: runner.os == 'Linux'
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install --yes bubblewrap ripgrep
+      - name: Load the CI-only AppArmor launcher prerequisite
+        if: runner.os == 'Linux'
+        id: apparmor
+        timeout-minutes: 1
+        run: |
+          set -euo pipefail
+          bash .github/ci/bwrap-apparmor.sh load
+      - name: Verify the Linux namespace backend before adapter probes
+        if: runner.os == 'Linux'
+        run: /usr/bin/bwrap --unshare-all --ro-bind / / --dev /dev --proc /proc /bin/true
+      - name: Provision the vendored compiler bundle custody (issue #44)
+        run: |
+          set -euo pipefail
+          npm ci --prefix "$LEKALO_TYPESCRIPT_ROOT/adapters/node-typescript" --ignore-scripts --no-audit --no-fund
+          node tests/external/lekalo-typescript/adapters/node-typescript/provision-compiler.mjs
+          node tests/external/lekalo-typescript/adapters/node-typescript/build.mjs --check
+      - name: Locate the built debug CLI for adapter conformance
+        run: |
+          node --input-type=module <<'NODE'
+          import { accessSync, appendFileSync, constants } from 'node:fs';
+          import { resolve, sep } from 'node:path';
+          const binary = resolve('target/debug', process.platform === 'win32' ? 'lekalo.exe' : 'lekalo').split(sep).join('/');
+          accessSync(binary, constants.X_OK);
+          appendFileSync(process.env.GITHUB_ENV, `LEKALO_DEBUG_BIN=${binary}\n`);
+          NODE
+      - name: Build the native contract oracle
+        run: |
+          cargo build --locked -p lekalo-core --example typescript-native-contract
+      - name: Run the Node/TypeScript kernel suite (issue #43)
+        run: node scripts/test-node-typescript-kernel.mjs
+      - name: Run the adapter manifest contract gate (issue #32)
+        env:
+          LEKALO_AJV_NODE_PATH: ${{ runner.temp }}/lekalo-ajv-8.20.0/node_modules
+        run: node scripts/test-adapter-manifest-contracts.mjs
+      - name: Verify the shipped adapter manifest golden (issue #32, #54)
+        run: node scripts/test-adapter-manifest-golden.mjs
+      - name: Run the TypeScript scanner suite (issue #44)
+        run: node scripts/test-node-typescript-scanner.mjs
+      - name: Qualify the TypeScript 7 native runtime contract
+        env:
+          LEKALO_AJV_NODE_PATH: ${{ runner.temp }}/lekalo-ajv-8.20.0/node_modules
+        timeout-minutes: 10
+        run: |
+          node scripts/test-typescript-native-runtime.mjs
+      - name: Qualify the public manifested TypeScript scan (issue #150)
+        env:
+          LEKALO_AJV_NODE_PATH: ${{ runner.temp }}/lekalo-ajv-8.20.0/node_modules
+        timeout-minutes: 10
+        run: |
+          node scripts/gen-public-scan-protocol.mjs --check
+          node scripts/test-public-typescript-scan.mjs
+          node scripts/gen-native-symbols-protocol.mjs --check
+          node scripts/test-public-typescript-roundtrip.mjs
+      - name: Run the brownfield TypeScript pilot gate (issue #118)
+        # The observed-mode pilot path end to end over the committed
+        # synthetic consumer fixture: adopt dry-run purity, scan +
+        # binding + projections, staleness on a controlled change, and
+        # the closed privacy-safe metrics schema.
+        timeout-minutes: 10
+        run: node scripts/test-pilot-brownfield-ts.mjs
+      - name: Run the native gate suite (issue #48)
+        run: node scripts/test-node-native-gates.mjs
+      - name: Run the transport generator gate (issue #70)
+        run: node scripts/test-node-typescript-transport.mjs
+      - name: Run the OpenAPI generator gate (issue #46)
+        run: node scripts/test-node-openapi.mjs
+      - name: Run the scenario-test compiler gate (issue #47)
+        run: node scripts/test-node-scenario-tests.mjs
+      - name: Run the scenario unit suites (issue #47 review F-11)
+        run: node scripts/test-node-scenario-units.mjs
+      - name: Run the native gate contract gate (issue #48)
+        env:
+          LEKALO_AJV_NODE_PATH: ${{ runner.temp }}/lekalo-ajv-8.20.0/node_modules
+        run: |
+          set -euo pipefail
+          NODE_PATH="$LEKALO_AJV_NODE_PATH" node scripts/test-native-gate-contracts.mjs
+      - name: Run the applicable conformance battery against the kernel adapter (bare)
+        run: '"$LEKALO_DEBUG_BIN" adapter test --profile default --report junit -- node tests/external/lekalo-typescript/adapters/node-typescript/adapter.mjs'
+      - name: Run the conformance battery against the configured scanner adapter (issue #44)
+        run: |
+          set -euo pipefail
+          PROFILE_JSON=$(tr -d '[:space:]' < tests/external/lekalo-typescript/tests/fixtures/node-typescript-scanner/protocol/conformance.profile.json)
+          "$LEKALO_DEBUG_BIN" adapter test --profile default --report junit -- node tests/external/lekalo-typescript/adapters/node-typescript/adapter.mjs --lekalo-project-profile-json "$PROFILE_JSON"
+          "$LEKALO_DEBUG_BIN" adapter test --profile strict --report junit -- node tests/external/lekalo-typescript/adapters/node-typescript/adapter.mjs --lekalo-project-profile-json "$PROFILE_JSON" || test $? -eq 4
+      - name: Run the conformance battery against the transport-configured adapter (issue #70)
+        run: |
+          set -euo pipefail
+          PROFILE_JSON=$(tr -d '[:space:]' < tests/external/lekalo-typescript/tests/fixtures/node-typescript-transport/protocol/conformance.profile.json)
+          "$LEKALO_DEBUG_BIN" adapter test --profile default --report json -- node tests/external/lekalo-typescript/adapters/node-typescript/adapter.mjs --lekalo-project-profile-json "$PROFILE_JSON"
+      - name: Provision the pinned Go toolchain for the client-SDK gate (issue #72)
+        uses: actions/setup-go@v7
+        with:
+          go-version: "1.23.5"
+          # The SDK gate creates its Go module in a disposable directory.
+          # There is no repository-root dependency file to use as a cache key.
+          cache: false
+      - name: Run the client-SDK generator gate (issue #72)
+        run: node scripts/test-node-client-sdk.mjs
+      - name: Run the client-SDK runtime gate (issue #72)
+        env:
+          NODE_PATH: ${{ runner.temp }}/lekalo-ajv-8.20.0/node_modules
+        run: |
+          set -euo pipefail
+          npm install --prefix "$RUNNER_TEMP/lekalo-client-sdk-vue" --ignore-scripts --no-audit --no-fund --no-save typescript@5.9.3 @vue/compiler-sfc@3.4.38
+          # NODE_PATH is colon-delimited on POSIX and semicolon-delimited on Windows.
+          delim=":"; if [ "$RUNNER_OS" = "Windows" ]; then delim=";"; fi
+          NODE_PATH="$NODE_PATH$delim$RUNNER_TEMP/lekalo-client-sdk-vue/node_modules" node scripts/test-client-sdk-runtime.mjs
+      - name: Remove the CI-only AppArmor launcher prerequisite
+        if: always() && runner.os == 'Linux'
+        timeout-minutes: 1
+        run: |
+          set -euo pipefail
+          bash .github/ci/bwrap-apparmor.sh remove
+          test "$(sysctl -n kernel.apparmor_restrict_unprivileged_userns)" = 1
+          if sudo grep -Eq '^lekalo-ci-bwrap(-child)? ' /sys/kernel/security/apparmor/profiles; then
+            exit 1
+          fi
+
+  mysql-docs:
+    name: Synthetic MySQL documentation tutorial (issue #105)
+    runs-on: ubuntu-26.04
+    timeout-minutes: 20
+    services:
+      mysql:
+        image: mysql:8.4.5@sha256:679e7e924f38a3cbb62a3d7df32924b83f7321a602d3f9f967c01b3df18495d6
+        env:
+          MYSQL_ROOT_PASSWORD: synthetic-root-only
+          MYSQL_DATABASE: lekalo_docs_tutorial
+          MYSQL_USER: tutorial
+          MYSQL_PASSWORD: synthetic-tutorial-only
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping --silent"
+          --health-interval=10s --health-timeout=5s --health-retries=20
+    steps:
+      - uses: ichinya/lekalo-adapter-sdk/.github/actions/stage-host-tests@2c8009f10afebce94a60e14470b8fec115d9a87c
+        with:
+          host: 9eb07ce8f21f96a9a160d382ac6280b9fa0fbcbe
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        if: runner.environment == 'github-hosted'
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24.x
+          package-manager-cache: false
+      - name: Build the locked CLI and provision the exact schema validator
+        run: |
+          set -euo pipefail
+          cargo build -p lekalo-cli --locked
+          npm install --prefix "$RUNNER_TEMP/lekalo-ajv-8.20.0" --ignore-scripts --no-audit --no-fund --no-save ajv@8.20.0
+      - name: Provision the synthetic fixture from its committed npm lock
+        # Visible setup only; replay never installs or uses a production URL.
+        run: npm ci --prefix tests/fixtures/pilot/brownfield-mysql --ignore-scripts --no-audit --no-fund
+      - name: Replay actual-package typecheck, HTTP and MySQL persistence
+        timeout-minutes: 10
+        env:
+          NODE_PATH: ${{ runner.temp }}/lekalo-ajv-8.20.0/node_modules
+          LEKALO_DOCS_MYSQL_PORT: '3306'
+        run: node scripts/test-docs-examples.mjs --lane mysql
